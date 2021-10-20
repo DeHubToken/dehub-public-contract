@@ -2155,8 +2155,11 @@ library Percent {
 		uint256 b = x.mod(scale);
 		uint256 c = y.div(scale);
 		uint256 d = y.mod(scale);
-		uint256 result = a * c * scale + a * d + b * c + b * d / scale;
-		return result;
+		
+		uint256 piece1 = a.mul(c).mul(scale).add(a);
+		uint256 piece2 = piece1.mul(d).add(b).mul(c);
+		uint256 piece3 = piece2.add(b).mul(d).div(scale);
+		return piece3;
 	}
 }
 
