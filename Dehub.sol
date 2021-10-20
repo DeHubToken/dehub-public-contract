@@ -2035,6 +2035,72 @@ abstract contract Collateralize is Ownable, Helpers, Tokenomics, Pancake, RFI, T
 }
 
 
+// File @openzeppelin/contracts/security/ReentrancyGuard.sol@v4.2.0
+
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.0;
+
+/**
+ * @dev Contract module that helps prevent reentrant calls to a function.
+ *
+ * Inheriting from `ReentrancyGuard` will make the {nonReentrant} modifier
+ * available, which can be applied to functions to make sure there are no nested
+ * (reentrant) calls to them.
+ *
+ * Note that because there is a single `nonReentrant` guard, functions marked as
+ * `nonReentrant` may not call one another. This can be worked around by making
+ * those functions `private`, and then adding `external` `nonReentrant` entry
+ * points to them.
+ *
+ * TIP: If you would like to learn more about reentrancy and alternative ways
+ * to protect against it, check out our blog post
+ * https://blog.openzeppelin.com/reentrancy-after-istanbul/[Reentrancy After Istanbul].
+ */
+abstract contract ReentrancyGuard {
+    // Booleans are more expensive than uint256 or any type that takes up a full
+    // word because each write operation emits an extra SLOAD to first read the
+    // slot's contents, replace the bits taken up by the boolean, and then write
+    // back. This is the compiler's defense against contract upgrades and
+    // pointer aliasing, and it cannot be disabled.
+
+    // The values being non-zero value makes deployment a bit more expensive,
+    // but in exchange the refund on every call to nonReentrant will be lower in
+    // amount. Since refunds are capped to a percentage of the total
+    // transaction's gas, it is best to keep them low in cases like this one, to
+    // increase the likelihood of the full refund coming into effect.
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+
+    uint256 private _status;
+
+    constructor() {
+        _status = _NOT_ENTERED;
+    }
+
+    /**
+     * @dev Prevents a contract from calling itself, directly or indirectly.
+     * Calling a `nonReentrant` function from another `nonReentrant`
+     * function is not supported. It is possible to prevent this from happening
+     * by making the `nonReentrant` function external, and make it call a
+     * `private` function that does the actual work.
+     */
+    modifier nonReentrant() {
+        // On the first call to nonReentrant, _notEntered will be true
+        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
+
+        // Any calls to nonReentrant after this point will fail
+        _status = _ENTERED;
+
+        _;
+
+        // By storing the original value once again, a refund is triggered (see
+        // https://eips.ethereum.org/EIPS/eip-2200)
+        _status = _NOT_ENTERED;
+    }
+}
+
+
 // File contracts/abstracts/libraries/Percent.sol
 
 // SPDX-License-Identifier: MIT
@@ -2089,11 +2155,8 @@ library Percent {
 		uint256 b = x.mod(scale);
 		uint256 c = y.div(scale);
 		uint256 d = y.mod(scale);
-		
-		uint256 piece1 = a.mul(c).mul(scale).add(a);
-		uint256 piece2 = piece1.mul(d).add(b).mul(c);
-		uint256 piece3 = piece2.add(b).mul(d).div(scale);
-		return piece3;
+		uint256 result = a * c * scale + a * d + b * c + b * d / scale;
+		return result;
 	}
 }
 
@@ -2103,7 +2166,7 @@ library Percent {
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-abstract contract Distribution is Ownable, Tokenomics, Pancake, RFI, Supply, TxPolice {
+abstract contract Distribution is Ownable, ReentrancyGuard, Tokenomics, Pancake, RFI, Supply, TxPolice {
 	using SafeMath for uint256;
 	using Percent for uint256;
 	// Will keep tabs on how much BNB from the balance belongs for distribution.
@@ -2247,6 +2310,7 @@ abstract contract Distribution is Ownable, Tokenomics, Pancake, RFI, Supply, TxP
 	function claimReward() 
 		external
 		onlyHolder
+		nonReentrant
 		returns(uint256)
 	{
 		address sender = _msgSender();
@@ -2521,72 +2585,6 @@ interface IERC20Metadata is IERC20 {
 }
 
 
-// File @openzeppelin/contracts/security/ReentrancyGuard.sol@v4.2.0
-
-// SPDX-License-Identifier: MIT
-
-pragma solidity ^0.8.0;
-
-/**
- * @dev Contract module that helps prevent reentrant calls to a function.
- *
- * Inheriting from `ReentrancyGuard` will make the {nonReentrant} modifier
- * available, which can be applied to functions to make sure there are no nested
- * (reentrant) calls to them.
- *
- * Note that because there is a single `nonReentrant` guard, functions marked as
- * `nonReentrant` may not call one another. This can be worked around by making
- * those functions `private`, and then adding `external` `nonReentrant` entry
- * points to them.
- *
- * TIP: If you would like to learn more about reentrancy and alternative ways
- * to protect against it, check out our blog post
- * https://blog.openzeppelin.com/reentrancy-after-istanbul/[Reentrancy After Istanbul].
- */
-abstract contract ReentrancyGuard {
-    // Booleans are more expensive than uint256 or any type that takes up a full
-    // word because each write operation emits an extra SLOAD to first read the
-    // slot's contents, replace the bits taken up by the boolean, and then write
-    // back. This is the compiler's defense against contract upgrades and
-    // pointer aliasing, and it cannot be disabled.
-
-    // The values being non-zero value makes deployment a bit more expensive,
-    // but in exchange the refund on every call to nonReentrant will be lower in
-    // amount. Since refunds are capped to a percentage of the total
-    // transaction's gas, it is best to keep them low in cases like this one, to
-    // increase the likelihood of the full refund coming into effect.
-    uint256 private constant _NOT_ENTERED = 1;
-    uint256 private constant _ENTERED = 2;
-
-    uint256 private _status;
-
-    constructor() {
-        _status = _NOT_ENTERED;
-    }
-
-    /**
-     * @dev Prevents a contract from calling itself, directly or indirectly.
-     * Calling a `nonReentrant` function from another `nonReentrant`
-     * function is not supported. It is possible to prevent this from happening
-     * by making the `nonReentrant` function external, and make it call a
-     * `private` function that does the actual work.
-     */
-    modifier nonReentrant() {
-        // On the first call to nonReentrant, _notEntered will be true
-        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
-
-        // Any calls to nonReentrant after this point will fail
-        _status = _ENTERED;
-
-        _;
-
-        // By storing the original value once again, a refund is triggered (see
-        // https://eips.ethereum.org/EIPS/eip-2200)
-        _status = _NOT_ENTERED;
-    }
-}
-
-
 // File contracts/Dehub.sol
 
 // SPDX-License-Identifier: MIT
@@ -2595,8 +2593,7 @@ pragma solidity ^0.8.0;
 contract DEHUB is 
 	IERC20Metadata, 
 	Context, 
-	Ownable, 
-	ReentrancyGuard, 
+	Ownable,
 	Tokenomics, 
 	RFI,
 	TxPolice,
@@ -2622,9 +2619,9 @@ contract DEHUB is
 
 /* ------------------------------- IERC20 Meta ------------------------------ */
 
-	function name() external pure override returns(string memory) { return NAME;}
-	function symbol() external pure override returns(string memory) { return SYMBOL;}
-	function decimals() external pure override returns(uint8) { return DECIMALS; }	
+	function name() external pure override returns(string memory) { return NAME; }
+	function symbol() external pure override returns(string memory) { return SYMBOL; }
+	function decimals() external pure override returns(uint8) { return DECIMALS; }
 
 /* -------------------------------- Overrides ------------------------------- */
 
